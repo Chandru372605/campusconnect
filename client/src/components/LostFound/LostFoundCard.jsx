@@ -1,41 +1,75 @@
-import React, { useContext } from "react";
-import { AuthContext } from "../../context/AuthContext";
-import axios from "../../services/api";
+import React, { useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import axios from '../../services/api';
 
 export default function LostFoundCard({ post, onResolve }) {
   const { user, token } = useContext(AuthContext);
-  const isOwner = user && post.postedBy?._id === user.id;
+  const uid = user?._id || user?.id;
+  const isOwner = uid && post.postedBy?._id === uid;
+  const isLost = post.status === 'lost';
 
   const handleResolve = async () => {
-    if (window.confirm("Mark as resolved?")) {
-      await axios.patch(`/lostfound/${post._id}/resolve`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      onResolve();
+    if (window.confirm('Mark this item as resolved/found?')) {
+      try {
+        await axios.patch(`/lostfound/${post._id}/resolve`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        onResolve?.();
+      } catch (_) {}
     }
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow flex flex-col">
-      {post.image && <img src={post.image} alt="" className="w-full h-48 object-cover rounded-t" />}
-      <div className="p-3 flex-1 flex flex-col">
-        <div className="flex gap-2 items-center mb-2">
-          <span className={`badge ${post.status === 'found' ? "badge-success" : "badge-warning"}`}>
-            {post.status === 'found' ? "FOUND" : "LOST"}
+    <div className="card" style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Image */}
+      {post.image && (
+        <div style={{ aspectRatio: '16/9', overflow: 'hidden' }}>
+          <img src={post.image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+      )}
+
+      <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {/* Status badges */}
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span className={`badge ${isLost ? 'badge-danger' : 'badge-success'}`}>
+            {isLost ? '🚨 LOST' : '✅ FOUND'}
           </span>
-          {post.isResolved && <span className="badge badge-info">Resolved</span>}
+          {post.isResolved && <span className="badge badge-secondary">✓ Resolved</span>}
+          {post.location && <span className="badge badge-info">📍 {post.location}</span>}
         </div>
-        <h3 className="font-bold text-lg">{post.title}</h3>
-        <div className="text-gray-700 dark:text-gray-300">{post.description}</div>
-        <div className="mt-auto pt-2 text-xs">
-          {post.postedBy?.avatar && (
-            <img src={post.postedBy.avatar} alt="" className="w-5 h-5 rounded-full inline-block mr-1" />
+
+        <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0 }}>{post.title}</h3>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', flex: 1, lineHeight: 1.5 }}>
+          {post.description}
+        </p>
+
+        {/* Footer */}
+        <div style={{ paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+          {post.contact && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+              📞 {post.contact}
+            </div>
           )}
-          {post.contact ? `Contact: ${post.contact}` : ""}
+          {post.postedBy && (
+            <div className="user-row" style={{ marginBottom: isOwner && !post.isResolved ? '0.75rem' : 0 }}>
+              <div className="avatar avatar-sm">
+                {post.postedBy.avatar
+                  ? <img src={post.postedBy.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  : post.postedBy.name?.[0]
+                }
+              </div>
+              <div>
+                <div className="user-name">{post.postedBy.name}</div>
+                <div className="user-sub">{new Date(post.createdAt).toLocaleDateString()}</div>
+              </div>
+            </div>
+          )}
+          {isOwner && !post.isResolved && (
+            <button className="btn btn-success btn-sm" style={{ width: '100%' }} onClick={handleResolve}>
+              ✓ Mark as Resolved
+            </button>
+          )}
         </div>
-        {isOwner && !post.isResolved && (
-          <button className="btn btn-sm btn-success mt-2" onClick={handleResolve}>Mark as resolved</button>
-        )}
       </div>
     </div>
   );

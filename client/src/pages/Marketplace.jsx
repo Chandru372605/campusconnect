@@ -4,76 +4,92 @@ import axios from '../services/api';
 import MarketplaceCard from '../components/Marketplace/MarketplaceCard';
 import ProductDetailModal from '../components/Marketplace/ProductDetailModal';
 import ProductFormModal from '../components/Marketplace/ProductFormModal';
-import { Link } from 'react-router-dom';
+
+const CATEGORIES = ['All', 'Books', 'Electronics', 'Cycle / Bike', 'Hostel Supplies', 'Clothing', 'Sports', 'Stationery', 'Others'];
 
 export default function Marketplace() {
   const { token } = useContext(AuthContext);
   const [products, setProducts] = useState([]);
+  const [filtered, setFiltered] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
 
   const fetchProducts = async () => {
+    setLoading(true);
     try {
       const { data } = await axios.get('/market');
       setProducts(data);
-    } catch (err) {
-      console.error(err);
-    }
+      setFiltered(data);
+    } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   useEffect(() => { fetchProducts(); }, []);
 
+  useEffect(() => {
+    let result = products;
+    if (category !== 'All') result = result.filter(p => p.category === category);
+    if (search) result = result.filter(p =>
+      p.title?.toLowerCase().includes(search.toLowerCase()) ||
+      p.description?.toLowerCase().includes(search.toLowerCase())
+    );
+    setFiltered(result);
+  }, [products, search, category]);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 shadow px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-gray-400 hover:text-indigo-600 text-sm">← Home</Link>
-          <h1 className="text-xl font-bold text-indigo-600">🛒 Marketplace</h1>
-        </div>
+    <div className="container-main">
+      <div className="page-header">
+        <h1 className="page-title">🛒 Marketplace</h1>
         {token && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition"
-          >
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             + List Item
           </button>
         )}
       </div>
 
-      {/* Products Grid */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {loading ? (
-          <p className="text-center text-gray-400">Loading...</p>
-        ) : products.length === 0 ? (
-          <p className="text-center text-gray-400">No listings yet. Be the first!</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map(p => (
-              <div key={p._id} onClick={() => setSelectedProduct(p)} className="cursor-pointer">
-                <MarketplaceCard product={p} />
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Filters */}
+      <div className="filter-row">
+        <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
+          <span>🔍</span>
+          <input
+            placeholder="Search items..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && <button className="btn-icon" onClick={() => setSearch('')}>✕</button>}
+        </div>
+        <select className="select" style={{ width: 'auto' }} value={category} onChange={e => setCategory(e.target.value)}>
+          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+        </select>
       </div>
 
-      {/* Modals */}
+      {/* Products Grid */}
+      {loading ? (
+        <div className="loading-center"><div className="spinner" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <span className="icon">🛒</span>
+          <p>{search || category !== 'All' ? 'No items match your search.' : 'No listings yet. Be the first!'}</p>
+          {token && <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => setShowForm(true)}>List an Item</button>}
+        </div>
+      ) : (
+        <div className="grid-cards">
+          {filtered.map(p => (
+            <div key={p._id} onClick={() => setSelectedProduct(p)}>
+              <MarketplaceCard product={p} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {selectedProduct && (
-        <ProductDetailModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onChat={() => {
-            window.location.href = `/chat?seller=${selectedProduct.seller?._id}&product=${selectedProduct._id}`;
-          }}
-        />
+        <ProductDetailModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
       )}
       {showForm && (
-        <ProductFormModal
-          onClose={() => { setShowForm(false); fetchProducts(); }}
-        />
+        <ProductFormModal onClose={() => { setShowForm(false); fetchProducts(); }} />
       )}
     </div>
   );

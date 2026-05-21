@@ -1,40 +1,66 @@
 import React, { useEffect, useState, useContext } from 'react';
-import axios from "../services/api";
-import LostFoundCard from "../components/LostFound/LostFoundCard";
-import LostFoundFormModal from "../components/LostFound/LostFoundFormModal";
-import { AuthContext } from "../context/AuthContext";
+import axios from '../services/api';
+import LostFoundCard from '../components/LostFound/LostFoundCard';
+import LostFoundFormModal from '../components/LostFound/LostFoundFormModal';
+import { AuthContext } from '../context/AuthContext';
 
 export default function LostFound() {
   const { user } = useContext(AuthContext);
   const [posts, setPosts] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [filter, setFilter] = useState('all'); // 'all' | 'lost' | 'found'
+  const [loading, setLoading] = useState(true);
 
   const fetchPosts = async () => {
-    const { data } = await axios.get("/lostfound");
-    setPosts(data);
+    setLoading(true);
+    try {
+      const { data } = await axios.get('/lostfound');
+      setPosts(data);
+    } catch (err) { console.error(err); }
+    setLoading(false);
   };
 
   useEffect(() => { fetchPosts(); }, []);
 
+  const filtered = filter === 'all' ? posts : posts.filter(p => p.status === filter);
+
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Lost & Found</h1>
+    <div className="container-main">
+      <div className="page-header">
+        <h1 className="page-title">🔍 Lost & Found</h1>
         {user && (
           <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
             + Report Item
           </button>
         )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {posts.length === 0 && <div>No lost or found items reported yet.</div>}
-        {posts.map(p => <LostFoundCard key={p._id} post={p} onResolve={fetchPosts} />)}
+
+      {/* Filter Tabs */}
+      <div className="tabs" style={{ marginBottom: '1.25rem', maxWidth: 320 }}>
+        {[['all', 'All Items'], ['lost', '🚨 Lost'], ['found', '✅ Found']].map(([val, label]) => (
+          <button key={val} className={`tab ${filter === val ? 'active' : ''}`}
+            onClick={() => setFilter(val)}>
+            {label}
+          </button>
+        ))}
       </div>
-      {modalOpen && (
-        <LostFoundFormModal
-          onClose={() => { setModalOpen(false); fetchPosts(); }}
-        />
+
+      {/* Content */}
+      {loading ? (
+        <div className="loading-center"><div className="spinner" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          <span className="icon">🔍</span>
+          <p>{filter === 'all' ? 'No items reported yet.' : `No ${filter} items yet.`}</p>
+          {user && <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => setModalOpen(true)}>Report an Item</button>}
+        </div>
+      ) : (
+        <div className="grid-cards">
+          {filtered.map(p => <LostFoundCard key={p._id} post={p} onResolve={fetchPosts} />)}
+        </div>
       )}
+
+      {modalOpen && <LostFoundFormModal onClose={() => { setModalOpen(false); fetchPosts(); }} />}
     </div>
   );
 }

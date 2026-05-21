@@ -1,57 +1,75 @@
-import React, { useEffect, useState, useContext } from "react";
-import axios from "../services/api";
-import ConfessionCard from "../components/Confessions/ConfessionCard";
-import ConfessionFormModal from "../components/Confessions/ConfessionFormModal";
-import { AuthContext } from "../context/AuthContext";
+import React, { useEffect, useState, useContext } from 'react';
+import axios from '../services/api';
+import ConfessionCard from '../components/Confessions/ConfessionCard';
+import ConfessionFormModal from '../components/Confessions/ConfessionFormModal';
+import { AuthContext } from '../context/AuthContext';
 
 export default function Confessions() {
   const { user } = useContext(AuthContext);
   const [showModal, setShowModal] = useState(false);
   const [confs, setConfs] = useState([]);
-  const [trending, setTrending] = useState(false);
+  const [tab, setTab] = useState('recent'); // 'recent' | 'trending'
+  const [loading, setLoading] = useState(true);
 
   const fetchConfs = async () => {
-    const { data } = await axios.get(trending ? "/confessions/trending" : "/confessions");
-    setConfs(data);
+    setLoading(true);
+    try {
+      const url = tab === 'trending' ? '/confessions?trending=true' : '/confessions';
+      const { data } = await axios.get(url);
+      setConfs(data);
+    } catch (err) { console.error(err); }
+    setLoading(false);
   };
 
-  useEffect(() => { fetchConfs(); }, [trending]);
+  // eslint-disable-next-line
+  useEffect(() => { fetchConfs(); }, [tab]);
 
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="font-bold text-2xl">Confessions</h1>
-        {!!user && (
+    <div className="container-main" style={{ maxWidth: 640 }}>
+      <div className="page-header">
+        <h1 className="page-title">🤫 Confessions</h1>
+        {user && (
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
             + Confess
           </button>
         )}
       </div>
-      <div className="mb-4 flex gap-2">
-        <button className={`btn btn-sm ${!trending && "btn-active"}`} onClick={() => setTrending(false)}>
-          Recent
+
+      {/* Tabs */}
+      <div className="tabs" style={{ marginBottom: '1.25rem' }}>
+        <button className={`tab ${tab === 'recent' ? 'active' : ''}`} onClick={() => setTab('recent')}>
+          🕐 Recent
         </button>
-        <button className={`btn btn-sm ${trending && "btn-active"}`} onClick={() => setTrending(true)}>
-          Trending
+        <button className={`tab ${tab === 'trending' ? 'active' : ''}`} onClick={() => setTab('trending')}>
+          🔥 Trending
         </button>
       </div>
-      <div className="flex flex-col gap-3">
-        {confs.length === 0 && <div>No confessions yet.</div>}
-        {confs.map(conf => (
-          <ConfessionCard
-            key={conf._id}
-            confession={conf}
-            onAction={fetchConfs}
-          />
-        ))}
+
+      {/* Info */}
+      <div className="alert alert-info" style={{ marginBottom: '1rem' }}>
+        🔒 All confessions are completely anonymous. Your identity is never revealed.
       </div>
-      {showModal &&
-        <ConfessionFormModal
-          onClose={() => {
-            setShowModal(false);
-            fetchConfs();
-          }}
-        />}
+
+      {/* Content */}
+      {loading ? (
+        <div className="loading-center"><div className="spinner" /></div>
+      ) : confs.length === 0 ? (
+        <div className="empty-state">
+          <span className="icon">🤫</span>
+          <p>No confessions yet. Be brave, share yours!</p>
+          {user && <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => setShowModal(true)}>Share Anonymously</button>}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {confs.map(conf => (
+            <ConfessionCard key={conf._id} confession={conf} onAction={fetchConfs} />
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <ConfessionFormModal onClose={() => { setShowModal(false); fetchConfs(); }} />
+      )}
     </div>
   );
 }
